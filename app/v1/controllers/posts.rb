@@ -1,52 +1,6 @@
 # Posts is an example controller that uses Sequel models
 # directly for interacting with the database.
 
-module Praxis
-  class Response
-    def encode!(handlers:)
-      case @body
-      when Hash, Array
-        # response payload is structured data; transform it into an entity using the handler
-        # implied by the response's media type. If no handler is registered for this
-        # name, assume JSON as a default handler.
-        handler = (content_type && handlers[content_type.handler_name]) || handlers['json']
-        @body = handler.generate(@body)
-      end
-    end
-
-    def finish(application:)
-      format!(config: application.config)
-      # encode!(handlers: application.handlers)
-
-      #@body = Array(@body)
-
-      if @form_data
-        if @body.any?
-          unless @body.last =~ /\n$/
-            @body << "\r\n"
-          end
-        end
-
-        @parts.each do |name, part|
-          part.encode!
-          entity = MIME::Text.new(part.body)
-
-          part.headers.each do |header_name, header_value|
-            entity.headers.set header_name, header_value
-          end
-
-          @form_data.add entity, name
-        end
-
-        @body << @form_data.body.to_s
-      end
-
-      [@status, @headers, @body]
-    end
-
-  end
-end
-
 module V1
   module Controllers
     class Posts
@@ -70,22 +24,23 @@ module V1
 
         enumerator = Enumerator.new do |yielder|
           yielder << BEGINCOLLECTION
-          o.each.with_index do |x,idx| 
+          o.in_groups_of(25).each.with_index do |group,idx| 
             yielder << SEPARATOR unless idx == 0 
-            yielder << x
+            yielder << group
           end
           yielder << ENDCOLLECTION
         end
         puts "#{enumerator.count} ELEMENTS"  
-        enumerator.lazy.with_index.map do|elem,idx|
-          if elem == BEGINCOLLECTION 
+        enumerator.lazy.with_index.map do|group,idx|
+#          puts ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>#{idx}"
+          if group == BEGINCOLLECTION 
             '['
-          elsif elem == ENDCOLLECTION
+          elsif group == ENDCOLLECTION
             ']'
-          elsif elem == SEPARATOR
+          elsif group == SEPARATOR
             ','
           else
-            handler.generate(elem)
+            group.map {|elem| handler.generate(elem) }.join(',')
           end
         end
       rescue => e
@@ -102,7 +57,7 @@ module V1
       def index(*args)
         posts = Post.all
         many = []
-        200.times do
+        5.times do
           many += posts
         end
         display(many)
