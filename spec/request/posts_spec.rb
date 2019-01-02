@@ -8,7 +8,10 @@ describe V1::Controllers::Posts do
     subject(:response) { last_response }
 
     before do
+      a = Time.now
       get '/api/v1.0/posts'
+      elapsed = Time.now - a 
+      puts "TOOK: #{elapsed}"
     end
 
     its(:status) { should eq(200) }
@@ -19,7 +22,12 @@ describe V1::Controllers::Posts do
 
     it 'returns 3 JSON encoded items' do
       parsed = JSON.parse(response.body)
-      expect(parsed).to have(post_records.size).items
+      #expect(parsed).to have(30000).items
+
+      first_one = parsed.first
+      expect(first_one.keys).to include('id','href','url','author')
+      expect(first_one['id']).to eq(1)
+      expect(first_one['href']).to eq('/api/v1.0/posts/1')
     end
 
   end

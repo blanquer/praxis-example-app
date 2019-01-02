@@ -48,7 +48,7 @@ module FactoryGirl
         build_without_media_type
       end
     end
-    alias_method_chain :build, :media_type
+    #alias_method_chain :build, :media_type
   end
 
 end

@@ -1,16 +1,19 @@
 source "https://rubygems.org"
 
-gem 'praxis'
-gem 'praxis-blueprints'
-gem 'praxis-mapper'
-gem 'attributor'
+gem 'praxis', git: 'https://github.com/blanquer/praxis', branch: 'singletonRemovalTests'
+gem 'praxis-mapper', git: 'https://github.com/praxis/praxis-mapper', branch: 'support_non_enumerable_association_object'
 
-gem 'newrelic-praxis'
+#gem 'praxis-blueprints'
+#gem 'attributor'
+
+#gem 'newrelic-praxis'
 
 gem 'rake'
 gem 'rspec'
 gem 'sqlite3'
 gem 'sequel'
+
+gem 'puma'
 
 # needed for XML handler support
 gem 'nokogiri'

@@ -1,6 +1,52 @@
 # Posts is an example controller that uses Sequel models
 # directly for interacting with the database.
 
+module Praxis
+  class Response
+    def encode!(handlers:)
+      case @body
+      when Hash, Array
+        # response payload is structured data; transform it into an entity using the handler
+        # implied by the response's media type. If no handler is registered for this
+        # name, assume JSON as a default handler.
+        handler = (content_type && handlers[content_type.handler_name]) || handlers['json']
+        @body = handler.generate(@body)
+      end
+    end
+
+    def finish(application:)
+      format!(config: application.config)
+      # encode!(handlers: application.handlers)
+
+      #@body = Array(@body)
+
+      if @form_data
+        if @body.any?
+          unless @body.last =~ /\n$/
+            @body << "\r\n"
+          end
+        end
+
+        @parts.each do |name, part|
+          part.encode!
+          entity = MIME::Text.new(part.body)
+
+          part.headers.each do |header_name, header_value|
+            entity.headers.set header_name, header_value
+          end
+
+          @form_data.add entity, name
+        end
+
+        @body << @form_data.body.to_s
+      end
+
+      [@status, @headers, @body]
+    end
+
+  end
+end
+
 module V1
   module Controllers
     class Posts
@@ -9,10 +55,57 @@ module V1
 
       implements ResourceDefinitions::Posts
 
+      BEGINCOLLECTION = '['.freeze
+      ENDCOLLECTION = ']'.freeze
+      SEPARATOR = ','.freeze
+      def render(object, include_nil: false)
+        loaded = self.media_type.load(object)
+        renderer = Praxis::Renderer.new(include_nil: include_nil)
+        
+        o = renderer.render(loaded, self.expanded_fields)
+
+        handlers = Praxis::Application.instance.handlers
+        handler = (response.content_type && handlers[response.content_type.handler_name]) || handlers['json']
+
+
+        enumerator = Enumerator.new do |yielder|
+          yielder << BEGINCOLLECTION
+          o.each.with_index do |x,idx| 
+            yielder << SEPARATOR unless idx == 0 
+            yielder << x
+          end
+          yielder << ENDCOLLECTION
+        end
+        puts "#{enumerator.count} ELEMENTS"  
+        enumerator.lazy.with_index.map do|elem,idx|
+          if elem == BEGINCOLLECTION 
+            '['
+          elsif elem == ENDCOLLECTION
+            ']'
+          elsif elem == SEPARATOR
+            ','
+          else
+            handler.generate(elem)
+          end
+        end
+      rescue => e
+        binding.pry
+        puts "!!!!!#{e}"
+      rescue Attributor::DumpError
+        if self.media_type.domain_model == Object
+          warn "Detected the rendering of an object of type #{self.media_type} without having a domain object model set.\n" +
+               "Did you forget to define it?"
+        end
+        raise
+      end
+
       def index(*args)
         posts = Post.all
-
-        display(posts)
+        many = []
+        200.times do
+          many += posts
+        end
+        display(many)
       end
 
 

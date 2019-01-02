@@ -4,7 +4,7 @@ require 'praxis/plugins/praxis_mapper_plugin'
 Praxis::Application.configure do |application|
 
   # Use Rack::ContentLength middleware
-  application.middleware Rack::ContentLength
+  # application.middleware Rack::ContentLength
 
   application.bootloader.use Praxis::Plugins::PraxisMapperPlugin,
     config_data: {
