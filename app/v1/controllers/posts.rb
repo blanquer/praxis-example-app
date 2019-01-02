@@ -1,30 +1,33 @@
 # Posts is an example controller that uses Sequel models
 # directly for interacting with the database.
 
+module Streamer
+  def render(object, include_nil: false)
+    streamit(super(object, include_nil: include_nil))
+  end
+end
+
 module V1
   module Controllers
     class Posts
       include Base
       include Praxis::Extensions::Rendering
 
+      include Streamer
       implements ResourceDefinitions::Posts
 
       BEGINCOLLECTION = '['.freeze
       ENDCOLLECTION = ']'.freeze
       SEPARATOR = ','.freeze
-      def render(object, include_nil: false)
-        loaded = self.media_type.load(object)
-        renderer = Praxis::Renderer.new(include_nil: include_nil)
-        
-        o = renderer.render(loaded, self.expanded_fields)
 
+      def streamit( objects )
         handlers = Praxis::Application.instance.handlers
         handler = (response.content_type && handlers[response.content_type.handler_name]) || handlers['json']
 
 
         enumerator = Enumerator.new do |yielder|
           yielder << BEGINCOLLECTION
-          o.in_groups_of(25).each.with_index do |group,idx| 
+          objects.in_groups_of(25).each.with_index do |group,idx| 
             yielder << SEPARATOR unless idx == 0 
             yielder << group
           end
@@ -46,18 +49,12 @@ module V1
       rescue => e
         binding.pry
         puts "!!!!!#{e}"
-      rescue Attributor::DumpError
-        if self.media_type.domain_model == Object
-          warn "Detected the rendering of an object of type #{self.media_type} without having a domain object model set.\n" +
-               "Did you forget to define it?"
-        end
-        raise
       end
-
+      
       def index(*args)
         posts = Post.all
         many = []
-        5.times do
+        100.times do
           many += posts
         end
         display(many)
