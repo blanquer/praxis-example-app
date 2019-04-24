@@ -1,7 +1,7 @@
 module V1
   module MediaTypes
     class Post < Praxis::MediaType
-      identifier 'application/json'
+      identifier 'application/vnd.bloggy.post'
       description 'A Post in Bloggy'
 
       domain_model 'V1::Resources::Post'

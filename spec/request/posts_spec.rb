@@ -11,7 +11,7 @@ describe V1::Controllers::Posts do
       a = Time.now
       get '/api/v1.0/posts'
       elapsed = Time.now - a 
-      puts "TOOK: #{elapsed}"
+      #puts "TOOK: #{elapsed}"
     end
 
     its(:status) { should eq(200) }

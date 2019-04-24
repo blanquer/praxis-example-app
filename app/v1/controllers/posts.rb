@@ -3,8 +3,47 @@
 
 module Streamer
   def render(object, include_nil: false)
-    streamit(super(object, include_nil: include_nil))
+    if object&.is_a? Enumerable
+      streamit(super(object, include_nil: include_nil))
+    else
+      super
+    end
   end
+
+  BEGINCOLLECTION = '['.freeze
+  ENDCOLLECTION = ']'.freeze
+  SEPARATOR = ','.freeze
+
+  def streamit( objects )
+    handlers = Praxis::Application.instance.handlers
+    handler = (response.content_type && handlers[response.content_type.handler_name]) || handlers['json']
+
+    enumerator = Enumerator.new do |yielder|
+      yielder << BEGINCOLLECTION
+      objects.in_groups_of(25).each.with_index do |group,idx| 
+        yielder << SEPARATOR unless idx == 0 
+        yielder << group
+      end
+      yielder << ENDCOLLECTION
+    end
+    #puts "#{enumerator.count} ELEMENTS"  
+    enumerator.lazy.with_index.map do|group,idx|
+      case group
+      when BEGINCOLLECTION 
+        '['
+      when ENDCOLLECTION
+        ']'
+      when SEPARATOR
+        ','
+      else
+        group.map {|elem| handler.generate(elem) }.join(',')
+      end
+    end
+  rescue => e
+    binding.pry
+    puts "!!!!!#{e}"
+  end
+
 end
 
 module V1
@@ -15,41 +54,6 @@ module V1
 
       include Streamer
       implements ResourceDefinitions::Posts
-
-      BEGINCOLLECTION = '['.freeze
-      ENDCOLLECTION = ']'.freeze
-      SEPARATOR = ','.freeze
-
-      def streamit( objects )
-        handlers = Praxis::Application.instance.handlers
-        handler = (response.content_type && handlers[response.content_type.handler_name]) || handlers['json']
-
-
-        enumerator = Enumerator.new do |yielder|
-          yielder << BEGINCOLLECTION
-          objects.in_groups_of(25).each.with_index do |group,idx| 
-            yielder << SEPARATOR unless idx == 0 
-            yielder << group
-          end
-          yielder << ENDCOLLECTION
-        end
-        puts "#{enumerator.count} ELEMENTS"  
-        enumerator.lazy.with_index.map do|group,idx|
-#          puts ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>#{idx}"
-          if group == BEGINCOLLECTION 
-            '['
-          elsif group == ENDCOLLECTION
-            ']'
-          elsif group == SEPARATOR
-            ','
-          else
-            group.map {|elem| handler.generate(elem) }.join(',')
-          end
-        end
-      rescue => e
-        binding.pry
-        puts "!!!!!#{e}"
-      end
       
       def index(*args)
         posts = Post.all
