@@ -4,14 +4,14 @@ describe V1::Controllers::Posts do
   let!(:post_records) { create_list(:post, 3) }
   let(:post_record) { post_records.first }
 
-  context 'index' do
+  context 'index', :focus do
     subject(:response) { last_response }
 
     before do
       a = Time.now
       get '/api/v1.0/posts'
       elapsed = Time.now - a 
-      #puts "TOOK: #{elapsed}"
+      puts "TOOK: #{elapsed}"
     end
 
     its(:status) { should eq(200) }

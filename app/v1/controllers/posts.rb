@@ -2,25 +2,33 @@
 # directly for interacting with the database.
 
 module Streamer
+
+
   def render(object, include_nil: false)
-    if object&.is_a? Enumerable
-      streamit(super(object, include_nil: include_nil))
-    else
-      super
+    #loaded = self.media_type.load(object)
+    renderer = Praxis::Renderer.new(include_nil: include_nil)
+    #renderer.render(loaded, self.expanded_fields)
+    streamit(renderer, object)
+
+  rescue Attributor::DumpError
+    if self.media_type.domain_model == Object
+      warn "Detected the rendering of an object of type #{self.media_type} without having a domain object model set.\n" +
+           "Did you forget to define it?"
     end
+    raise
   end
 
   BEGINCOLLECTION = '['.freeze
   ENDCOLLECTION = ']'.freeze
   SEPARATOR = ','.freeze
 
-  def streamit( objects )
+  def streamit( renderer, loaded_objects )
     handlers = Praxis::Application.instance.handlers
     handler = (response.content_type && handlers[response.content_type.handler_name]) || handlers['json']
 
     enumerator = Enumerator.new do |yielder|
       yielder << BEGINCOLLECTION
-      objects.in_groups_of(25).each.with_index do |group,idx| 
+      loaded_objects.in_groups_of(25,false).each.with_index do |group,idx| 
         yielder << SEPARATOR unless idx == 0 
         yielder << group
       end
@@ -36,7 +44,11 @@ module Streamer
       when SEPARATOR
         ','
       else
-        group.map {|elem| handler.generate(elem) }.join(',')
+#        puts ">>>>>>#{Time.now.to_f}"
+        group.map do |loaded|
+          elem = renderer.render(loaded, self.expanded_fields.first)
+          handler.generate(elem)
+        end.join(',')
       end
     end
   rescue => e
